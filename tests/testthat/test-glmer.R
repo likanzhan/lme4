@@ -138,26 +138,29 @@ if(FALSE) { ## Hadley broke this
                  radinger_dat)
     expect_is(mod,"merMod")
     ## tolerance: 32-bit Windows (CRAN) reported ave.diff of 5.33e-8
-    expect_equal(unname(fixef(mod)), c(0.5425528,6.4289962), tolerance = 4e-7)
+    ## 64-bit Win-builder r73242 now reports ave. diff of 1.31e-5 ...
+    expect_equal(unname(fixef(mod)), c(0.5425528,6.4289962), tolerance = 1e-4)
     set.seed(101)
     ## complete separation case
     d <- data.frame(y=rbinom(1000,size=1,p=0.5),
                     x=runif(1000),
                     f=factor(rep(1:20,each=50)),
                     x2=rep(0:1,c(999,1)))
-    mod2 <- glmer(y~x+x2+(1|f),data=d,family=binomial,
-                                   control=glmerControl(check.conv.hess="ignore",
-                                                        check.conv.grad="ignore"))
+    expect_message(mod2 <- glmer(y~x+x2+(1|f),data=d,family=binomial,
+                                 control=glmerControl(check.conv.hess="ignore",
+                                                      check.conv.grad="ignore")),
+                   "singular fit")
     expect_equal(unname(fixef(mod2))[1:2],
                  c(-0.10036244,0.03548523), tolerance=1e-4)
     expect_true(unname(fixef(mod2)[3] < -10))
-    mod3 <- update(mod2, family=binomial(link="probit"))
+    expect_message(mod3 <- update(mod2, family=binomial(link="probit")),
+                   "singular fit")
     # singular Hessian warning
     expect_equal(unname(fixef(mod3))[1:2], c(-0.062889, 0.022241), tolerance=1e-4)
     expect_true(fixef(mod3)[3] < -4)
-    mod4 <- update(mod2, family=binomial(link="cauchit"),
+    expect_message(mod4 <- update(mod2, family=binomial(link="cauchit"),
                    control=glmerControl(check.conv.hess="ignore",
-                                        check.conv.grad="ignore"))#--> singular Hessian warning
+                                        check.conv.grad="ignore")))#--> singular Hessian warning
 
     ## on-the-fly creation of index variables
     if (FALSE) {
@@ -178,11 +181,16 @@ if(FALSE) { ## Hadley broke this
         t1 <- system.time(g1 <-
                           glmer(NCM ~ birth + calvingYear + (1|sire) + (1|herd),
                                 mastitis, poisson,
-                                ## current (2014-04-24) default:
-                                control=glmerControl(optimizer=c("bobyqa","Nelder_Mead"))))
+                                ## current (2014-04-24) default: --> Warning
+                                control=glmerControl(  # max|grad| = 0.021 ..
+                                    optimizer=c("bobyqa","Nelder_Mead"))))
+
         t2 <- system.time(g2 <- update(g1,
                          control=glmerControl(optimizer="bobyqa")))
+        rbind(t1,t2)[,"elapsed"]
         ## 20 (then 13.0) seconds N-M vs 8 (then 4.8) seconds bobyqa ...
+        print(t1[3] / t2[3]) # 0.37; => 1.25 should be on the safe side
+        expect_lte(t2[3], 1.25 * t1[3])
         ## problem is fairly ill-conditioned so parameters
         ##  are relatively far apart even though likelihoods are OK
         expect_equal(logLik(g1),logLik(g2),tolerance=1e-7)

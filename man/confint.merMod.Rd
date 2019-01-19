@@ -1,5 +1,6 @@
 \name{confint.merMod}
 \alias{confint.merMod}
+\alias{confint.thpr}
 \title{Compute Confidence Intervals for Parameters of a [ng]lmer Fit}
 \description{
   Compute confidence intervals on the parameters of a \code{*lmer()}
@@ -12,9 +13,13 @@
         boot.type = c("perc","basic","norm"),
         FUN = NULL, quiet = FALSE,
 	oldNames = TRUE, ...)
+\method{confint}{thpr}(object, parm, level = 0.95,
+        zeta, non.mono.tol=1e-2,
+	...)
 }
+
 \arguments{
-  \item{object}{a fitted [ng]lmer model}
+  \item{object}{a fitted [ng]lmer model or profile}
   \item{parm}{parameters for which intervals are sought. Specified by an
     integer vector of positions, \code{\link{character}} vector of
     parameter names, or (unless doing parametric bootstrapping with a
@@ -38,7 +43,10 @@
   \item{quiet}{(logical) suppress messages about computationally intensive profiling?}
   \item{oldNames}{(logical) use old-style names for variance-covariance
     parameters, e.g. \code{".sig01"}, rather than newer (more informative) names such as
-    \code{"sd_(Intercept)|Subject"}? (See \code{signames} argument to \code{\link{profile}}).}
+    \code{"sd_(Intercept)|Subject"}? (See \code{signames} argument to
+    \code{\link{profile}}).}
+  \item{non.mono.tol}{tolerance for detecting a non-monotonic profile
+    and warning/falling back to linear interpolation}
   \item{\dots}{additional parameters to be passed to
     \code{\link{profile.merMod}} or \code{\link{bootMer}}, respectively.}
 }
@@ -80,13 +88,20 @@
 fm1 <- lmer(Reaction ~ Days + (Days|Subject), sleepstudy)
 fm1W <- confint(fm1, method="Wald")# very fast, but ....
 fm1W
+(fm2 <- lmer(Reaction ~ Days + (Days || Subject), sleepstudy))
+(CI2 <- confint(fm2, maxpts = 8)) # method = "profile"; 8: to be much faster
+\dontshow{ stopifnot(all.equal(tol = 1e-6, signif(unname(CI2), 7),
+               array(c(15.25847, 3.964157, 22.88062, 237.5732,  7.33431,
+                       37.78184, 8.768238, 28.78768, 265.2383, 13.60057),
+                     dim = c(5L, 2L))))
+}
 testLevel <- if (nzchar(s <- Sys.getenv("LME4_TEST_LEVEL"))) as.numeric(s) else 1
 if(interactive() || testLevel >= 3) {
  ## ~20 seconds, MacBook Pro laptop
  system.time(fm1P <- confint(fm1, method="profile", ## default
                              oldNames = FALSE))
  ## ~ 40 seconds
- system.time(fm1B <- confint(fm1,method="boot",
+ system.time(fm1B <- confint(fm1, method="boot",
                              .progress="txt", PBargs=list(style=3)))
 } else
   load(system.file("testdata","confint_ex.rda",package="lme4"))

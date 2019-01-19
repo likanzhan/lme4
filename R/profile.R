@@ -14,6 +14,7 @@ profnames <- function(object,signames=TRUE,
     return(nn)
 }
 
+
 ##' @importFrom splines backSpline interpSpline periodicSpline
 ##' @importFrom stats profile
 ##' @method profile merMod
@@ -21,7 +22,7 @@ profnames <- function(object,signames=TRUE,
 profile.merMod <- function(fitted,
                            which=NULL,
                            alphamax = 0.01,
-			   maxpts = 100,
+                           maxpts = 100,
                            delta = NULL,
                            delta.cutoff = 1/8,
                            verbose=0, devtol=1e-9,
@@ -42,16 +43,9 @@ profile.merMod <- function(fitted,
     ## FIXME: allow for failure of bounds (non-pos-definite correlation matrices) when >1 cor parameter
 
     prof.scale <- match.arg(prof.scale)
-    if (missing(parallel)) parallel <- getOption("profile.parallel", "no")
-    parallel <- match.arg(parallel)
-    have_mc <- have_snow <- FALSE
-    do_parallel <- (parallel != "no" && ncpus > 1L)
-    if (do_parallel) {
-        if (parallel == "multicore") have_mc <- .Platform$OS.type != "windows"
-        else if (parallel == "snow") have_snow <- TRUE
-	if (!(have_mc || have_snow))
-	    do_parallel <- FALSE # (only for "windows")
-    }
+    parallel   <- match.arg(parallel)
+    do_parallel <- have_mc <- have_snow <- NULL # "-Wall" are set here:
+    eval(initialize.parallel)# (parallel, ncpus)
 
     if (is.null(optimizer)) optimizer <- fitted@optinfo$optimizer
     ## hack: doesn't work to set bobyqa parameters to *ending* values stored
@@ -65,27 +59,22 @@ profile.merMod <- function(fitted,
         control.internal[[i]] <- control[[i]]
     }
     control <- control.internal
-    ## parallel stuff copied from bootMer ...
-    if (missing(parallel)) parallel <- getOption("profile.parallel", "no")
-    parallel <- match.arg(parallel)
-    have_mc <- have_snow <- FALSE
-    if (parallel != "no" && ncpus > 1L) {
-        if (parallel == "multicore") have_mc <- .Platform$OS.type != "windows"
-        else if (parallel == "snow") have_snow <- TRUE
-        if (!have_mc && !have_snow) ncpus <- 1L
-    }
     useSc <- isLMM(fitted) || isNLMM(fitted)
-    if (prof.scale=="sdcor") {
-        transfuns <- list(from.chol=Cv_to_Sv,
-                         to.chol=Sv_to_Cv,
-                         to.sd=identity)
-        prof.prefix = c("sd","cor")
-    } else if (prof.scale=="varcov") {
-        transfuns <- list(from.chol=Cv_to_Vv,
-                          to.chol=Vv_to_Cv,
-                          to.sd=sqrt)
-        prof.prefix = c("var","cov")
-    }
+    prof.prefix <-
+        switch(prof.scale,
+               "sdcor" = {
+                   transfuns <- list(from.chol= Cv_to_Sv,
+                                     to.chol  = Sv_to_Cv,
+                                     to.sd    = identity)
+                   c("sd", "cor")
+               },
+               "varcov" = {
+                   transfuns <- list(from.chol= Cv_to_Vv,
+                                     to.chol  = Vv_to_Cv,
+                                     to.sd    = sqrt)
+                   c("var", "cov")
+               },
+               stop("internal error, prof.scale=", prof.scale))
     dd <- devfun2(fitted,useSc,signames=signames,
                   transfuns=transfuns, prefix=prof.prefix, ...)
     ## FIXME: figure out to what do here ...
@@ -93,7 +82,8 @@ profile.merMod <- function(fitted,
         stop("can't (yet) profile GLMMs with non-fixed scale parameters")
     stopifnot(devtol >= 0)
     base <- attr(dd, "basedev")
-    thopt <- attr(dd, "thopt")
+    ## protect against accidental tampering by later devfun calls
+    thopt <- forceCopy(attr(dd, "thopt"))
     stderr <- attr(dd, "stderr")
     pp <- environment(dd)$pp
     X.orig <- pp$X
@@ -311,10 +301,10 @@ profile.merMod <- function(fitted,
         form[[3]] <- as.name(pname)
         forspl <- NULL # (in case of error)
         ## bakspl
-	bakspl <-
-	    tryCatch(backSpline(
-		forspl <- interpSpline(form, bres, na.action=na.omit)),
-		     error=function(e)e)
+        bakspl <-
+            tryCatch(backSpline(
+                forspl <- interpSpline(form, bres, na.action=na.omit)),
+                     error=function(e)e)
         if (inherits(bakspl, "error"))
             warning("non-monotonic profile for ",pname)
         ## return:
@@ -372,9 +362,9 @@ profile.merMod <- function(fitted,
             fe.zeta <- function(fw, start) {
                 ## (start parameter ignored)
                 rr$setOffset(Xw * fw + offset.orig)
-		rho <- list2env(list(pp=pp1, resp=rr), parent = parent.frame())
-		ores <- optwrap(optimizer, par = thopt, fn = mkdevfun(rho, 0L),
-				lower = fitted@lower)
+                rho <- list2env(list(pp=pp1, resp=rr), parent = parent.frame())
+                ores <- optwrap(optimizer, par = thopt, fn = mkdevfun(rho, 0L),
+                                lower = fitted@lower)
                 ## this optimization is done on the ORIGINAL
                 ##   theta scale (i.e. not the sigma/corr scale)
                 ## upper=Inf for all cases
@@ -409,11 +399,11 @@ profile.merMod <- function(fitted,
     row.names(ans) <- NULL ## TODO: rbind(*, make.row.names=FALSE)
     ans$.par <- factor(ans$.par)
     structure(ans,
-	      forward = forspl,
-	      backward = bakspl,
-	      lower = lower[seqnvp],
-	      upper = upper[seqnvp],
-	      class = c("thpr", "data.frame"))# 'thpr': see ../man/profile-methods.Rd
+              forward = forspl,
+              backward = bakspl,
+              lower = lower[seqnvp],
+              upper = upper[seqnvp],
+              class = c("thpr", "data.frame"))# 'thpr': see ../man/profile-methods.Rd
 } ## profile.merMod
 
 ##' Transform 'which' \in {parnames | integer | "beta_" | "theta_"}
@@ -457,19 +447,19 @@ get.which <- function(which, nvp, nptot, parnames, verbose=FALSE) {
 ## classes
 .modelMatrixDrop <- function(mm, w) {
     if (isS4(mm)) {
-	nX <- slotNames(X <- mm[, -w, drop = FALSE])
-	do.call(new,
-		c(list(Class = class(mm),
-		       assign = attr(mm,"assign")[-w],
-		       contrasts = NULL
-		       ## FIXME: where did the contrasts information go??
-		       ##      mm@contrasts
-		       ),
-		  lapply(structure(nX, .Names=nX),
-			 function(nm) slot(X, nm))))
+        nX <- slotNames(X <- mm[, -w, drop = FALSE])
+        do.call(new,
+                c(list(Class = class(mm),
+                       assign = attr(mm,"assign")[-w],
+                       contrasts = NULL
+                       ## FIXME: where did the contrasts information go??
+                       ##      mm@contrasts
+                       ),
+                  lapply(structure(nX, .Names=nX),
+                         function(nm) slot(X, nm))))
     } else {
-	structure(mm[, -w, drop=FALSE],
-		  assign = attr(mm, "assign")[-w])
+        structure(mm[, -w, drop=FALSE],
+                  assign = attr(mm, "assign")[-w])
     }
 }
 
@@ -650,28 +640,28 @@ xyplot.thpr <-
     ## for parameters for which spline couldn't be computed,
     ## replace the 'spl' element with the raw profile data
     if(any(badSpl <- vapply(spl, is.null, NA))) {
-	spl[badSpl] <- lapply(which(badSpl), function(i) {
-	    n <- names(badSpl)[i]
-	    r <- x[x[[".par"]] == n, ]
-	    data.frame(y = r[[".zeta"]], x = r[[n]])
-	})
-	bspl[badSpl] <- lapply(spl[badSpl], function(d) data.frame(x=d$y,y=d$x))
-	## FIXME: more efficient, not yet ok ?
-	## ibad <- which(badSpl)
-	## spl[ibad] <- lapply(names(ibad), function(n) {
-	##     r <- x[x[[".par"]]==n,]
-	##     data.frame(y = r[[".zeta"]], x = r[[n]])
-	## })
-	## bspl[ibad] <- lapply(spl[ibad], function(d) data.frame(x=d$y,y=d$x))
+        spl[badSpl] <- lapply(which(badSpl), function(i) {
+            n <- names(badSpl)[i]
+            r <- x[x[[".par"]] == n, ]
+            data.frame(y = r[[".zeta"]], x = r[[n]])
+        })
+        bspl[badSpl] <- lapply(spl[badSpl], function(d) data.frame(x=d$y,y=d$x))
+        ## FIXME: more efficient, not yet ok ?
+        ## ibad <- which(badSpl)
+        ## spl[ibad] <- lapply(names(ibad), function(n) {
+        ##     r <- x[x[[".par"]]==n,]
+        ##     data.frame(y = r[[".zeta"]], x = r[[n]])
+        ## })
+        ## bspl[ibad] <- lapply(spl[ibad], function(d) data.frame(x=d$y,y=d$x))
     }
     zeta <- c(-rev(levels), 0, levels)
     mypred <- function(bs, zeta) { ## use linear approximation if backspline doesn't work
-	if (inherits(bs,"spline"))
-	    predy(bs, zeta)
-	else if(is.numeric(x <- bs$x) && is.numeric(y <- bs$y) && length(x) == length(y))
-	    approx(x, y, xout = zeta)$y
-	else
-	    rep_len(NA, length(zeta))
+        if (inherits(bs,"spline"))
+            predy(bs, zeta)
+        else if(is.numeric(x <- bs$x) && is.numeric(y <- bs$y) && length(x) == length(y))
+            approx(x, y, xout = zeta)$y
+        else
+            rep_len(NA, length(zeta))
     }
     fr <- data.frame(zeta = rep.int(zeta, length(spl)),
                      pval = unlist(lapply(bspl, mypred, zeta)),
@@ -740,18 +730,25 @@ confint.thpr <- function(object, parm, level = 0.95, zeta,
     ## FIXME: work a little harder to add -Inf/Inf for fixed effect
     ##  parameters?  (Should only matter for really messed-up profiles)
     bnms <- names(bak)
-    if (missing(parm)) parm <- bnms
-    else if (is.numeric(parm)) parm <- bnms[parm]
-    parm <- intersect(as.character(parm), bnms)
-    cn <- NULL
-    if (missing(zeta)) {
-        a <- (1 - level)/2
-        a <- c(a, 1 - a)
-        zeta <- qnorm(a)
-        cn <- format.perc(a, 3)
-    }
-    ci <- matrix(NA,nrow=length(parm),ncol=2,
-                 dimnames=list(parm,cn))
+    parm <- if (missing(parm))
+                bnms
+            else if(is.numeric(parm)) # e.g., when called from confint.merMod()
+                bnms[parm]
+            else if (length(parm <- as.character(parm)) == 1) {
+                if (parm == "theta_")
+                    grep("^(sd_|cor_|.sig|sigma$)", bnms, value=TRUE)
+                else if (parm == "beta_")
+                    grep("^(sd_|cor_|.sig|sigma$)", bnms, value=TRUE, invert=TRUE)
+            } else
+                intersect(parm, bnms)
+    cn <-
+        if (missing(zeta)) {
+            a <- (1 - level)/2
+            a <- c(a, 1 - a)
+            zeta <- qnorm(a)
+            format.perc(a, 3)
+        } ## else NULL
+    ci <- matrix(NA_real_, nrow=length(parm), ncol=2L, dimnames = list(parm,cn))
     for (i in seq_along(parm)) {
         ## would like to build this machinery into predy, but
         ## predy is used in many places and it's much harder to
@@ -759,7 +756,7 @@ confint.thpr <- function(object, parm, level = 0.95, zeta,
         ## upper bound ...
         badprof <- FALSE
         p <- rep(NA,2)
-	if (!inherits(b <- bak[[parm[i]]], "error")) {
+        if (!inherits(b <- bak[[parm[i]]], "error")) {
             p <- predy(b, zeta)
         } else {
             obj1 <- object[object$.par==parm[[i]],c(parm[[i]],".zeta")]
@@ -800,8 +797,8 @@ confint.thpr <- function(object, parm, level = 0.95, zeta,
 ##' @param \dots additional parameters to be passed to  \code{\link{profile.merMod}} or \code{\link{bootMer}}
 ##' @return a numeric table of confidence intervals
 confint.merMod <- function(object, parm, level = 0.95,
-			   method = c("profile","Wald","boot"),
-			   zeta, nsim=500, boot.type = c("perc","basic","norm"),
+                           method = c("profile","Wald","boot"),
+                           zeta, nsim=500, boot.type = c("perc","basic","norm"),
                            FUN = NULL, quiet=FALSE, oldNames=TRUE, ...)
 {
     method <- match.arg(method)
@@ -810,7 +807,7 @@ confint.merMod <- function(object, parm, level = 0.95,
     if (method=="boot" && !is.null(FUN)) {
         ## custom boot function, don't expand parameter names
     } else {
-        ## "use scale" = GLMM with scale parameter *or* LMM ...
+        ## "use scale" = GLMM with scale parameter *or* LMM ..
         useSc <- as.logical(object@devcomp$dims[["useSc"]])
         vn <- profnames(object,oldNames,
                         useSc=useSc)
@@ -825,13 +822,12 @@ confint.merMod <- function(object, parm, level = 0.95,
         }
     }
     switch(method,
-	   "profile" =
-           {
+           "profile" = {
                pp <- profile(object, which=parm, signames=oldNames, ...)
+               ## confint.thpr() with missing(parm) using all names:
                confint(pp, level=level, zeta=zeta)
            },
-	   "Wald" =
-           {
+           "Wald" = {
                a <- (1 - level)/2
                a <- c(a, 1 - a)
                ci.vcov <- array(NA,dim = c(length(vn), 2L),
@@ -848,21 +844,20 @@ confint.merMod <- function(object, parm, level = 0.95,
                ci.all <- rbind(ci.vcov,ci.fixed)
                ci.all[parm,,drop=FALSE]
            },
-	   "boot" =
-           {
+           "boot" = {
                bootFun <- function(x) {
-		   th <- x@theta
-		   nvec <- lengths(x@cnms)
+                   th <- x@theta
+                   nvec <- lengths(x@cnms)
                    scaleTh <- (isLMM(x) || isNLMM(x))
-		   ## FIXME: still ugly.  Best cleanup via Cv_to_Sv ...
-		   ss <- if (scaleTh) {	 ## scale variances by sigma and include it
-		       setNames(Cv_to_Sv(th,n=nvec,s=sigma(x)), vn)
-		   } else if (useSc) { ## don't scale variances but do include sigma
-		       setNames(c(Cv_to_Sv(th,n=nvec),sigma(x)), vn)
-		   } else {  ## no scaling, no sigma
-		       setNames(Cv_to_Sv(th,n=nvec), vn)
-		   }
-                   c(ss, fixef(x))
+                   ## FIXME: still ugly.  Best cleanup via Cv_to_Sv ...
+                   ss <- if (scaleTh) {  ## scale variances by sigma and include it
+                       Cv_to_Sv(th, n=nvec, s=sigma(x))
+                   } else if (useSc) { ## don't scale variances but do include sigma
+                       c(Cv_to_Sv(th, n=nvec), sigma(x))
+                   } else {  ## no scaling, no sigma
+                       Cv_to_Sv(th, n=nvec)
+                   }
+                   c(setNames(ss, vn), fixef(x))
                }
                if (is.null(FUN)) FUN <- bootFun
                bb <- bootMer(object, FUN=FUN, nsim=nsim,...)
@@ -1106,8 +1101,8 @@ splom.thpr <- function (x, data,
                            line.lwd = axis.line.lwd)
             lims <- c(-1.07, 1.07) * mlev
             grid::pushViewport(viewport(xscale = lims, yscale = lims))
-	    side <- if(j == 1) "right" else "bottom"
-	    which.half <- if(j == 1) "lower" else "upper"
+            side <- if(j == 1) "right" else "bottom"
+            which.half <- if(j == 1) "lower" else "upper"
             at <- pretty(lims)
             panel.axis(side = side, at = at, labels = format(at, trim = TRUE),
                        ticks = TRUE, half = TRUE, which.half = which.half,
@@ -1146,14 +1141,14 @@ logProf <- function (x, base = exp(1), ranef=TRUE,
     sigP <- paste0("^\\.", sigIni)
     if (length(sigs <- grep(sigP, cn))) {
         repP <- sub("sig", ".lsig", sigIni)
-	colnames(x) <- cn <- sub(sigP, repP, cn)
+        colnames(x) <- cn <- sub(sigP, repP, cn)
         levels(x[[".par"]]) <- sub(sigP, repP, levels(x[[".par"]]))
         names(attr(x, "backward")) <-
             names(attr(x, "forward")) <-
                 sub(sigP, repP, names(attr(x, "forward")))
-	for (nm in cn[sigs]) {
+        for (nm in cn[sigs]) {
             x[[nm]] <- log(x[[nm]], base = base)
-	    fr <- x[x[[".par"]] == nm & is.finite(x[[nm]]), TRUE, drop=FALSE]
+            fr <- x[x[[".par"]] == nm & is.finite(x[[nm]]), TRUE, drop=FALSE]
             form <- eval(substitute(.zeta ~ nm, list(nm = as.name(nm))))
             attr(x, "forward")[[nm]] <- isp <- interpSpline(form, fr)
             attr(x, "backward")[[nm]] <- backSpline(isp)
@@ -1241,21 +1236,21 @@ varianceProf <- function(x, ranef=TRUE) {
     stopifnot(inherits(x, "thpr"))
     cn <- colnames(x)
     if(length(sigs <- grep(paste0("^\\.", if(ranef)"sig" else "sigma"), cn))) {
-        ## s/sigma/sigmasq/ ;  s/sig01/sig01sq/	 etc
+        ## s/sigma/sigmasq/ ;  s/sig01/sig01sq/  etc
         sigP <- paste0("^(\\.sig", if(ranef) "(ma)?" else "ma", ")")
-	repP <- "\\1sq"
-	colnames(x) <- cn <- sub(sigP, repP, cn)
-	levels(x[[".par"]]) <- sub(sigP, repP, levels(x[[".par"]]))
-	names(attr(x, "backward")) <-
-	    names(attr(x, "forward")) <-
-		sub(sigP, repP, names(attr(x, "forward")))
-	for (nm in cn[sigs]) {
-	    x[[nm]] <- x[[nm]]^2
-	    ## select rows (and currently drop extra attributes)
-	    fr <- x[x[[".par"]] == nm, TRUE, drop=FALSE]
-	    form <- eval(substitute(.zeta ~ nm, list(nm = as.name(nm))))
-	    attr(x, "forward")[[nm]] <- isp <- interpSpline(form, fr)
-	    attr(x, "backward")[[nm]] <- backSpline(isp)
+        repP <- "\\1sq"
+        colnames(x) <- cn <- sub(sigP, repP, cn)
+        levels(x[[".par"]]) <- sub(sigP, repP, levels(x[[".par"]]))
+        names(attr(x, "backward")) <-
+            names(attr(x, "forward")) <-
+                sub(sigP, repP, names(attr(x, "forward")))
+        for (nm in cn[sigs]) {
+            x[[nm]] <- x[[nm]]^2
+            ## select rows (and currently drop extra attributes)
+            fr <- x[x[[".par"]] == nm, TRUE, drop=FALSE]
+            form <- eval(substitute(.zeta ~ nm, list(nm = as.name(nm))))
+            attr(x, "forward")[[nm]] <- isp <- interpSpline(form, fr)
+            attr(x, "backward")[[nm]] <- backSpline(isp)
         }
     }
     x

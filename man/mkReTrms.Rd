@@ -7,12 +7,19 @@
   \code{Zt}, etc, associated with the random-effects terms.
 }
 \usage{
-  mkReTrms(bars, fr, drop.unused.levels=TRUE)
+  mkReTrms(bars, fr, drop.unused.levels=TRUE,
+                     reorder.terms=TRUE,
+                     reorder.vars=FALSE) 
 }
 \arguments{
   \item{bars}{a list of parsed random-effects terms}
   \item{fr}{a model frame in which to evaluate these terms}
-  \item{drop.unused.levels}{(logical) drop unused factor levels? (experimental)}
+  \item{drop.unused.levels}{(logical) drop unused factor levels?
+    (experimental)}
+  \item{reorder.terms}{arrange random effects terms in decreasing order
+    of number of groups (factor levels)?}
+  \item{reorder.vars}{arrange columns of individual random effects terms
+    in alphabetical order?}
 }
 \value{
   a \code{\link{list}} with components
@@ -21,7 +28,12 @@
   \item{Lind}{an integer vector of indices determining the mapping of
     the elements of the \code{theta} vector to the \code{"x"} slot of
     \code{Lambdat}}
-  \item{Gp}{}
+  \item{Gp}{a vector indexing the association of
+    elements of the conditional mode vector
+    with random-effect terms; if \code{nb} is the vector of numbers
+    of conditional modes per term (i.e. number of groups times number
+    of effects per group), \code{Gp} is \code{c(0,cumsum(nb))}
+    (and conversely \code{nb} is \code{diff(Gp)})}
   \item{lower}{lower bounds on the covariance parameters}
   \item{Lambdat}{transpose of the sparse relative covariance factor}
   \item{flist}{list of grouping factors used in the

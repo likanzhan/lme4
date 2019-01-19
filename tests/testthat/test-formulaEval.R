@@ -3,6 +3,12 @@ library("lme4")
 
 context("data= argument and formula evaluation")
 
+## intercept context-dependent errors ... it's too bad that
+##  these errors differ between devtools::test() and
+##  R CMD check, but finding the difference is too much
+##  of a nightmare
+data_RE <- "(bad 'data'|variable lengths differ)"
+
 test_that("glmerFormX", {
     set.seed(101)
 
@@ -28,8 +34,8 @@ test_that("glmerFormX", {
     ## expect_equal(drop1(m_data.3)$AIC,AICvec)
     ## expect_equal(drop1(m_data.4)$AIC,AICvec)
     ## in test environment:
-    expect_error(drop1(m_data.3),"bad 'data'")
-    expect_error(drop1(m_data.4),"bad 'data'")
+    expect_error(drop1(m_data.3),data_RE)
+    expect_error(drop1(m_data.4),data_RE)
 
 })
 
@@ -63,7 +69,7 @@ test_that("glmerForm", {
     d_nodata_List <- lapply(m_nodata_List,drop1)
 
     rm(list=c("x","y","z","r"))
-    
+
     ## data argument specified
     expect_that(m_data.0 <- glmer( x ~ y + z + (1|r) , data=d, family="binomial"), is_a("glmerMod"))
     expect_that(m_data.1 <- glmer( as.formula(modStr) , data=d, family="binomial"), is_a("glmerMod"))
@@ -101,8 +107,8 @@ test_that("glmerForm", {
 
     ## these do NOT fail if there is a variable 'd' living in the global environment --
     ## they DO fail in the testthat context
-    expect_error(drop1(m_data.3),"bad 'data'")
-    expect_error(drop1(m_data.4),"bad 'data'")
+    expect_error(drop1(m_data.3),data_RE)
+    expect_error(drop1(m_data.4),data_RE)
 
     ## expect_error(lapply(m_data_List[4],drop1))
     ## expect_error(lapply(m_data_List[5],drop1))
@@ -196,16 +202,18 @@ test_that("lapply etc.", {
     expect_is(lapply(listOfFormulas,glmer,family=binomial,data=cbpp),"list")
 })
 
-          
+
 test_that("missDataFun", {
     X <- expand.grid(x1=1:10, x2=1:10, x3=1:10, x4=1:10, g=letters[1:20])
     X$y <- X$x1 + rnorm(10)[X$g] + rnorm(200000)
-    system.time(lmer(y ~ x1 + x2 + x3 + x4 + (1|g), data=X,
-                     control=lmerControl(optimizer=NULL)))
+    (t1 <- system.time(lmer(y ~ x1 + x2 + x3 + x4 + (1|g), data=X,
+                            control=lmerControl(optimizer=NULL))))
     g <- function(X) {
         X$y <- X$x1 + rnorm(10)[X$g] + rnorm(200000)
         lme4:::missDataFun(X)
     }
-    ## should take < 0.5 seconds since deparsing is now skipped
-    expect_lt(system.time(g(X))["elapsed"],0.5)
+    ## should take < 1 second since deparsing is now skipped
+    (t2 <- system.time(g(X)))
+    ## Timing comparisons should be on a *relative* scale.
+    expect_lte(t2[["elapsed"]], 1/4 * t1[["elapsed"]]) # typical ratio: 0.03
 })

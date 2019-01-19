@@ -4,7 +4,142 @@
 \title{lme4 News}
 \encoding{UTF-8}
 
-\section{CHANGES IN VERSION 1.1-14}{
+\section{CHANGES IN VERSION 1.1-19.9000}{
+  \subsection{USER-VISIBLE CHANGES}{
+    \itemize{
+      \item default value for \code{condVar} (return conditional variances
+      as part of the \code{ranef.merMod} object) is now \code{TRUE}
+    }
+  }
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item adapted tests to work with R-devel's more consistent
+      \code{formula(model.frame(.))} behavior.
+    }
+  }
+}
+
+\section{CHANGES IN VERSION 1.1-19}{
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item influence measure code from \code{car} rolled in (see
+      \code{?influence.merMod})
+      \item \code{mkReTrm} gets new arguments \code{reorder.terms},
+      \code{reorder.vars} to control arrangement of RE terms and
+      individual effects with RE terms within model structures
+      \item adding material from the \pkg{RePsychLing} package
+      (on GitHub; see Bates et al 2015 arXiv:1506.04967) to
+      show orthogonal variance components.
+      \item new utility \code{isSingular()} function for
+      detecting singular fits
+      \item \code{allFit} function/methods have been moved to the main
+      package, rather than being included in an auxiliary source file;
+      computations can (in principle) be done in parallel
+    }
+  }
+  \subsection{USER-VISIBLE CHANGES}{
+    \itemize{
+      \item by default a message is now printed for singular fits
+      (i.e., fits with linear combinations of variance components
+      that are exactly zero)
+      \item \code{as.data.frame.merMod} finds conditional variance
+      information stored either as \code{attr(.,"postVar")} or
+      \code{attr(.,"condVar")} (for \code{glmmTMB} compatibility)
+      \item change to defaults of \code{[g]lmerControl} to print a
+      message when fits are singular
+      \item post-fitting convergence checks based on estimated gradient
+      and Hessian (see \code{\link{troubleshooting}}) are no longer
+      performed for (nearly-)singular fits (see \code{\link{isSingular}})
+    }
+  }
+}
+
+\section{CHANGES IN VERSION 1.1-18-1 (2018-08-17)}{
+ \itemize{
+ \item This is a minor release; the only change is to roll back (unexport) the \code{influence.merMod} method, pending resolution of conflicts with the car package
+ }
+}
+
+\section{CHANGES IN VERSION 1.1-18 ((2018-08-16)}{
+  \subsection{USER-VISIBLE CHANGES}{
+    \itemize{
+      \item \code{ranef(.,condVar=TRUE)} now works when there
+      are multiple random effects terms per factor
+    }
+  }
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item \code{rstudent} and \code{influence} methods are available
+      for \code{merMod} objects
+    \item \code{devfun2} function (for generating a deviance
+      function that works on the standard deviation/correlation scale)
+      is now exported
+    }
+  }
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{lmList} now obeys its \code{pool} argument (instead of
+      always using what currently is the default, GH #476)
+    }
+  }
+}
+
+
+\section{CHANGES IN VERSION 1.1-17 (2018-04-03)}{
+  \itemize{
+    \item This is a maintenance release only (fixes CRAN problems with
+    cross-platform tests and examples)
+  }
+}
+\section{CHANGES IN VERSION 1.1-16 (2018-03-28)}{
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{lmList} no longer ignores the \code{subset} argument
+      (John Fox)
+      \item fixed several minor issues with predicting when (1) grouping
+      variables have different levels from original model (e.g. missing
+      levels/factor levels not explicitly specified in \code{newdata}) or (2)
+      \code{re.form} is a subset of the original RE formula and some
+      (unused) grouping variables are omitted from \code{newdata} (GH
+      #452, #457)
+    }
+  }
+  \subsection{USER-VISIBLE CHANGES}{
+    \itemize{
+      \item \code{lmList} tries harder to collect errors and pass them
+      on as warnings
+      \item documented \code{as.function} method (given a \code{merMod}
+      object, returns a function that computes the deviance/REML criterion for
+      specified parameters)
+      \item \code{print} method for \code{summary.merMod} objects
+      no longer collapses small values of the t-statistic to zero
+    }
+  }
+}
+
+\section{CHANGES IN VERSION 1.1-15 (2017-12-21)}{
+  \subsection{BUG FIXES}{
+     \itemize{
+	\item \code{model.frame(., fixed.only=TRUE)} now handles models with
+	"non-syntactic" (e.g. space-containing/backtick-delimited)
+        variables in the formula.
+
+	\item \code{confint(<merMod>)} now works again for the default
+	method \code{"profile"}.
+      }
+    }
+    \subsection{USER-VISIBLE CHANGES}{
+      \itemize{
+	\item exported \code{dotplot.ranef.mer}
+      }
+    }
+}
+
+\section{CHANGES IN VERSION 1.1-14 (2017-09-27)}{
+  \itemize{
+     \item Primarily an R-devel/CRAN-compatibility release.
+  }
+
   \subsection{NEW FEATURES}{
     \itemize{
       \item added \code{transf} argument to \code{dotplot.ranef.mer}
@@ -19,6 +154,18 @@
       \item fix bug where NAs in fitting data were carried over into
       predictions on new data (!) (lmwang9527, GH #420)
       \item fix bug with long terms in models with || notation
+      \item \code{nlmer} now respects user-specified lower/upper bounds
+      (GH #432)
+      \item \code{confint.thpr} (confint method applied to an
+      already-computed profile now respects "theta_"/"beta_"
+      specifications to return all random-effect or all fixed-effect
+      confidence intervals, respectively.
+    }
+  }
+  \subsection{DOCUMENTATION IMPROVEMENTS}{
+    \itemize{
+      \item document need to export packages and objects to workers
+      when using \code{bootMer} with snow
     }
   }
   \subsection{USER-VISIBLE CHANGES}{
@@ -26,12 +173,15 @@
       \item improved warning message when using
       \code{lmerControl()} with \code{glmer} (GH #415)
       \item avoid deparsing big data frames when checking data (GH
-      #410) 
+      #410)
       \item pass \code{verbose} options to nloptr optimizers when
       using \code{nloptwrap} (previously ignored, with a warning)
+      \item the \code{fl} (factor list) component of \code{mkReTrms}
+      objects is now returned as a list rather than a data frame
     }
   }
 }
+
 
 \section{CHANGES IN VERSION 1.1-13 (2017-04-18) }{
   \subsection{NEW FEATURES}{
@@ -68,7 +218,7 @@
   }
   \subsection{BUG FIXES}{
     \itemize{
-      \item fixed bug \emph{de novo} Gamma-response simulations
+      \item fixed bug in \emph{de novo} Gamma-response simulations
     }
   }
 }
@@ -100,7 +250,7 @@
     \itemize{
       \item updated CITATION file.
     }
-  }    
+  }
   \subsection{NEW FEATURES}{
     \itemize{
       \item We export set of about a dozen printing utility functions

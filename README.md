@@ -9,7 +9,18 @@ lme4: Mixed-effects models in R.
 
 ## Recent/release notes
 
-* Version 1.1-13 is on CRAN (as of April 2017). Changes in this release are very minor, minor bugfixes and CRAN-compatibility tweaks. See the [NEWS file](https://github.com/lme4/lme4/blob/master/inst/NEWS.Rd) (or  `news(Version=="1.1.13",package="lme4")`).
+* Version 1.1-19 is on CRAN (November 2019). Changes in this release are fairly minor: the biggest changes are that a message is now printed for singular fits. See the [NEWS file](https://github.com/lme4/lme4/blob/master/inst/NEWS.Rd) (or  `news(Version=="1.1.19",package="lme4")`).
+
+## Where to get help
+
+- `r-sig-mixed-models@r-project.org` for questions about `lme4` usage and more general mixed model questions
+- https://github.com/lme4/lme4/issues for bug, infelicity, and wishlist reporting
+- The [lme4 tag on StackOverflow](https://stackoverflow.com/questions/tagged/lme4) for programming-related or the [lme4-nlme tag on CrossValidated](https://stats.stackexchange.com/questions/tagged/lme4-nlme) for statistics-related questions
+- maintainer e-mail only for urgent/private communications
+
+## Support
+
+If you choose to support `lme4` development financially, you can contribute to a fund at McMaster University (home institution of one of the developers) [here](https://secureca.imodules.com/s/1439/17/giving/form.aspx?sid=1439&gid=1&pgid=770&cid=1618&dids=2413&bledit=1&appealcode=18C9). The form will say that you are donating to the "Global Coding Fund"; this fund is available for use by the developers, under McMaster's research spending rules. We plan to use the funds, as available, to pay students to do maintenance and development work. There is no way to earmark funds or set up a bounty to direct funding toward particular features, but you can e-mail the maintainers and suggest priorities for your donation.
 
 ## Features
 
@@ -33,7 +44,7 @@ library("devtools"); install_github("lme4/lme4",dependencies=TRUE)
 ```
 (This requires `devtools` >= 1.6.1, and installs the "master" (development) branch.)
 This approach builds the package from source, i.e. `make` and compilers must be installed on your system -- see the R FAQ for your operating system; you may also need to install dependencies manually. Specify `build_vignettes=FALSE` if you have trouble because your system is missing some of the `LaTeX/texi2dvi` tools.
-* Usually up-to-date development binaries from `lme4` r-forge repository:
+* Development binaries from `lme4` r-forge repository:
 ```
 install.packages("lme4",
    repos=c("http://lme4.r-forge.r-project.org/repos",

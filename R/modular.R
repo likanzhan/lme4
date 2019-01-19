@@ -25,7 +25,7 @@ noLHSform <- function(formula) {
 ##' @param cstr name of control being set
 ##' @param val value of control being set
 checkCtrlLevels <- function(cstr, val, smallOK=FALSE) {
-    bvals <- c("stop","warning","ignore")
+    bvals <- c("message","warning","stop","ignore")
     if (smallOK) bvals <- outer(bvals, c("","Small"), paste0)
     if (!is.null(val) && !val %in% bvals)
         stop("invalid control level ",sQuote(val)," in ",cstr,": valid options are {",
@@ -91,9 +91,9 @@ checkZrank <- function(Zt, n, ctrl, nonSmall = 1e6, allow.n=FALSE)
     cstr <- "check.nobs.vs.rankZ"
     if (doCheck(cc <- ctrl[[cstr]])) { ## not NULL or "ignore"
         checkCtrlLevels(cstr, cc, smallOK=TRUE)
-	d <- dim(Zt)
-	doTr <- d[1L] < d[2L] # Zt is "wide" => qr needs transpose(Zt)
-	if(!(grepl("Small",cc) && prod(d) > nonSmall)) {
+        d <- dim(Zt)
+        doTr <- d[1L] < d[2L] # Zt is "wide" => qr needs transpose(Zt)
+        if(!(grepl("Small",cc) && prod(d) > nonSmall)) {
             rankZ <- rankMatrix(if(doTr) t(Zt) else Zt, method="qr",
                                 sval = numeric(min(d)))
             ww <- wmsg(n,rankZ,allow.n,"number of observations","rank(Z)")
@@ -145,7 +145,7 @@ checkScaleX <- function(X,  kind="warning", tol=1e3) {
             if (kind == "warn+rescale") warning(wmsg, call.=FALSE)
         }
     } else
-	wmsg <- character()
+        wmsg <- character()
     structure(X, msgScaleX = wmsg)
 }
 
@@ -164,36 +164,36 @@ checkNlevels <- function(flist, n, ctrl, allow.n=FALSE)
     cstr <- "check.nlev.gtr.1"
     checkCtrlLevels(cstr, cc <- ctrl[[cstr]])
     if (doCheck(cc) && any(nlevelVec < 2)) {
-	wstr <- "grouping factors must have > 1 sampled level"
-	switch(cc,
-	       "warning" = warning(wstr,call.=FALSE),
-	       "stop"	 =    stop(wstr,call.=FALSE),
+        wstr <- "grouping factors must have > 1 sampled level"
+        switch(cc,
+               "warning" = warning(wstr,call.=FALSE),
+               "stop"    =    stop(wstr,call.=FALSE),
                ## FIXME: should never get here since we have checkCtrLevels test above?
-	       stop(gettextf("unknown check level for '%s'", cstr), domain=NA))
+               stop(gettextf("unknown check level for '%s'", cstr), domain=NA))
     } else wstr <- character()
     ## Part 2 ----------------
     cstr <- "check.nobs.vs.nlev"
     checkCtrlLevels(cstr, cc <- ctrl[[cstr]])
     if (doCheck(cc) && any(if(allow.n) nlevelVec > n else nlevelVec >= n)) {
-	wst2 <- gettextf(
-	    "number of levels of each grouping factor must be %s number of observations",
-	    if(allow.n) "<=" else "<")
-	switch(cc,
-	       "warning" = warning(wst2, call.=FALSE),
-	       "stop"    =    stop(wst2, call.=FALSE)
-	       ## shouldn't reach here
-	       )
+        wst2 <- gettextf(
+            "number of levels of each grouping factor must be %s number of observations",
+            if(allow.n) "<=" else "<")
+        switch(cc,
+               "warning" = warning(wst2, call.=FALSE),
+               "stop"    =    stop(wst2, call.=FALSE)
+               ## shouldn't reach here
+               )
     } else wst2 <- character()
 
     ## Part 3 ----------------
     cstr <- "check.nlev.gtreq.5"
     checkCtrlLevels(cstr, cc <- ctrl[[cstr]])
     if (doCheck(cc) && any(nlevelVec < 5)) {
-	wst3 <- "grouping factors with < 5 sampled levels may give unreliable estimates"
-	switch(cc,
-	       "warning" = warning(wst3, call.=FALSE),
-	       "stop"	 = stop	  (wst3, call.=FALSE),
-	       stop(gettextf("unknown check level for '%s'", cstr), domain=NA))
+        wst3 <- "grouping factors with < 5 sampled levels may give unreliable estimates"
+        switch(cc,
+               "warning" = warning(wst3, call.=FALSE),
+               "stop"    = stop   (wst3, call.=FALSE),
+               stop(gettextf("unknown check level for '%s'", cstr), domain=NA))
     } else wst3 <- character()
     ## return:
     c(wstr, wst2, wst3) ## possibly == character(0)
@@ -233,7 +233,7 @@ chkRank.drop.cols <- function(X, kind, tol = 1e-7, method = "qr.R") {
     if (kind == "stop.deficient") {
         if ((rX <- rankMatrix(X, tol=tol, method=method)) < p)
             stop(gettextf(sub("\n +", "\n",
-		  "the fixed-effects model matrix is column rank deficient (rank(X) = %d < %d = p);
+                  "the fixed-effects model matrix is column rank deficient (rank(X) = %d < %d = p);
                    the fixed effects will be jointly unidentifiable"),
                           rX, p), call. = FALSE)
     } else {
@@ -251,8 +251,8 @@ chkRank.drop.cols <- function(X, kind, tol = 1e-7, method = "qr.R") {
 
         ## message about no. dropped columns:
         msg <- sprintf(ngettext(p - rnkX,
-		"fixed-effect model matrix is rank deficient so dropping %d column / coefficient",
-		"fixed-effect model matrix is rank deficient so dropping %d columns / coefficients"),
+                "fixed-effect model matrix is rank deficient so dropping %d column / coefficient",
+                "fixed-effect model matrix is rank deficient so dropping %d columns / coefficients"),
                        p - rnkX)
         if (kind != "silent.drop.cols")
             (if(kind == "warn+drop.cols") warning else message)(msg, domain = NA)
@@ -265,15 +265,15 @@ chkRank.drop.cols <- function(X, kind, tol = 1e-7, method = "qr.R") {
         keep <- qr.X$pivot[seq_len(rnkX)]
         dropped.names <- colnames(X[,-keep,drop=FALSE])
         X <- X[, keep, drop = FALSE]
-	if (rankMatrix(X, tol=tol, method=method) < ncol(X))
+        if (rankMatrix(X, tol=tol, method=method) < ncol(X))
             stop(gettextf("Dropping columns failed to produce full column rank design matrix"),
                  call. = FALSE)
 
         ## Re-assign relevant attributes:
         if(!is.null(contr)) attr(X, "contrasts") <- contr
         if(!is.null(asgn))  attr(X, "assign")    <- asgn[keep]
-	attr(X, "msgRankdrop") <- msg
-	attr(X, "col.dropped") <- setNames(qr.X$pivot[(rnkX+1L):p],
+        attr(X, "msgRankdrop") <- msg
+        attr(X, "col.dropped") <- setNames(qr.X$pivot[(rnkX+1L):p],
                                            dropped.names)
     }
     X
@@ -299,9 +299,9 @@ checkResponse <- function(y, ctrl) {
     aX <- attributes(x@pp$X)
     wmsgs <- grep("^msg", names(aX))
     if(any(has.msg <- nchar(Xwmsgs <- unlist(aX[wmsgs])) > 0))
-	Xwmsgs[has.msg]
+        Xwmsgs[has.msg]
     else
-	character()
+        character()
 }
 
 
@@ -395,6 +395,9 @@ lFormula <- function(formula, data=NULL, REML = TRUE,
     fixedfr <- eval(mf, parent.frame())
     attr(attr(fr,"terms"), "predvars.fixed") <-
         attr(attr(fixedfr,"terms"), "predvars")
+    ## so we don't have to fart around retrieving which vars we need
+    ##  in model.frame(.,fixed.only=TRUE)
+    attr(attr(fr,"terms"), "varnames.fixed") <- names(fixedfr)
 
     ## ran-effects model frame (for predvars)
     ## important to COPY formula (and its environment)?
@@ -416,7 +419,7 @@ lFormula <- function(formula, data=NULL, REML = TRUE,
     X <- checkScaleX(X, kind=scaleX.chk)
 
     list(fr = fr, X = X, reTrms = reTrms, REML = REML, formula = formula,
-	 wmsgs = c(Nlev = wmsgNlev, Zdims = wmsgZdims, Zrank = wmsgZrank))
+         wmsgs = c(Nlev = wmsgNlev, Zdims = wmsgZdims, Zrank = wmsgZrank))
 }
 
 ## utility f'n for checking starting values
@@ -502,20 +505,29 @@ mkLmerDevfun <- function(fr, X, reTrms, REML = TRUE, start = NULL,
                                       n=nrow(X), list(X=X)))
     REMLpass <- if(REML) p else 0L
     rho$resp <-
-        if(missing(fr)) mkRespMod(REML = REMLpass, ...) else mkRespMod(fr, REML = REMLpass)
-    ## note: REML does double duty as rank of X and a flag for using
+        if(missing(fr))
+             mkRespMod(    REML = REMLpass, ...)
+        else mkRespMod(fr, REML = REMLpass)
+    ## FIXME / note: REML does double duty as rank of X and a flag for using
     ## REML maybe this should be mentioned in the help file for
     ## mkRespMod??  currently that help file says REML is logical.  a
     ## consequence of this double duty is that it is impossible to fit
-    ## a model with no fixed effects using REML.
-    devfun <- mkdevfun(rho, 0L, verbose=verbose, control=control)
+    ## a model with no fixed effects using REML (MM: ==> FIXME)
+    ## devfun <- mkdevfun(rho, 0L, verbose=verbose, control=control)
+
+    ## prevent R CMD check false pos. warnings (in this function only):
+    pp <- resp <- NULL
+    rho$lmer_Deviance <- lmer_Deviance
+    devfun <- function(theta)
+        .Call(lmer_Deviance, pp$ptr(), resp$ptr(), as.double(theta))
+    environment(devfun) <- rho
 
     # if all random effects are of the form 1|f and starting values not
     # otherwise provided (and response variable is present, i.e. not doing
     # a simulation) then compute starting values
     if (is.null(start) &&
-	all(reTrms$cnms == "(Intercept)") &&
-	length(reTrms$flist) == length(reTrms$lower) &&
+        all(reTrms$cnms == "(Intercept)") &&
+        length(reTrms$flist) == length(reTrms$lower) &&
         !is.null(y <- model.response(fr))) {
         v <- sapply(reTrms$flist, function(f) var(ave(y, f)))
         v.e <- var(y) - sum(v)
@@ -530,7 +542,7 @@ mkLmerDevfun <- function(fr, X, reTrms, REML = TRUE, start = NULL,
     ## MM: commenting it did not break any of our checks
     if (length(rho$resp$y) > 0)  ## only if non-trivial y
         devfun(rho$pp$theta) # one evaluation to ensure all values are set
-    rho$lower <- reTrms$lower # SCW:  in order to be more consistent with mkLmerDevfun
+    rho$lower <- reTrms$lower # to be more consistent with mkGlmerDevfun
     devfun # this should pass the rho environment implicitly
 }
 
@@ -588,9 +600,9 @@ optimizeLmer <- function(devfun,
         }
     }
     if (boundary.tol > 0)
-	check.boundary(rho, opt, devfun, boundary.tol)
+        check.boundary(rho, opt, devfun, boundary.tol)
     else
-	opt
+        opt
 }
 
 ## TODO: remove any arguments that aren't actually used by glFormula (same for lFormula)
@@ -627,7 +639,7 @@ glFormula <- function(formula, data=NULL, family = gaussian,
     checkCtrlLevels(cstr, control[[cstr]])
 
     denv <- checkFormulaData(formula, data,
-			     checkLHS = control$check.formula.LHS == "stop")
+                             checkLHS = control$check.formula.LHS == "stop")
     mc$formula <- formula <- as.formula(formula, env = denv)    ## substitute evaluated version
 
     ## DRY ...
@@ -699,13 +711,13 @@ glFormula <- function(formula, data=NULL, family = gaussian,
     X <- checkScaleX(X, kind=scaleX.chk)
 
     list(fr = fr, X = X, reTrms = reTrms, family = family, formula = formula,
-	 wmsgs = c(Nlev = wmsgNlev, Zdims = wmsgZdims, Zrank = wmsgZrank))
+         wmsgs = c(Nlev = wmsgNlev, Zdims = wmsgZdims, Zrank = wmsgZrank))
 }
 
 ##' @rdname modular
 ##' @export
-mkGlmerDevfun <- function(fr, X, reTrms, family, nAGQ = 1L, verbose = 0L, maxit = 100L,
-                          control=glmerControl(), ...) {
+mkGlmerDevfun <- function(fr, X, reTrms, family, nAGQ = 1L, verbose = 0L,
+                          maxit = 100L, control = glmerControl(), ...) {
     stopifnot(length(nAGQ <- as.integer(nAGQ)) == 1L,
               0L <= nAGQ, nAGQ <= 25L)
     verbose <- as.integer(verbose)
@@ -718,9 +730,9 @@ mkGlmerDevfun <- function(fr, X, reTrms, family, nAGQ = 1L, verbose = 0L, maxit 
                       c(reTrms[c("Zt","theta","Lambdat","Lind")],
                         n=nrow(X), list(X=X)))
     rho$resp <- if (missing(fr))
-	mkRespMod(family=family, ...)
+        mkRespMod(family=family, ...)
     else
-	mkRespMod(fr, family=family)
+        mkRespMod(fr, family=family)
     nAGQinit <- if(control$nAGQ0initStep) 0L else 1L
     ## allow trivial y
     if (length(y <- rho$resp$y) > 0) {
@@ -745,7 +757,7 @@ mkGlmerDevfun <- function(fr, X, reTrms, family, nAGQ = 1L, verbose = 0L, maxit 
 ##' @param stage optimization stage (1: nAGQ=0, optimize over theta only; 2: nAGQ possibly >0, optimize over theta and beta)
 ##' @export
 optimizeGlmer <- function(devfun,
-                          optimizer="bobyqa",
+                          optimizer = if(stage == 1) "bobyqa" else "Nelder_Mead",
                           restart_edge=FALSE,
                           boundary.tol = formals(glmerControl)$boundary.tol,
                           verbose = 0L,
@@ -763,7 +775,6 @@ optimizeGlmer <- function(devfun,
     } else { ## stage == 2
         start <- getStart(start, lower=rho$lower, pred=rho$pp, returnVal="all")
         adj <- TRUE
-        if (missing(optimizer)) optimizer <- "Nelder_Mead"  ## BMB: too clever?
     }
     opt <- optwrap(optimizer, devfun, start, rho$lower,
                    control=control, adj=adj, verbose=verbose,

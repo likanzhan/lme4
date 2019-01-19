@@ -44,7 +44,7 @@ mlist2vec <- function(L) {
     ## in either case, read off in "lower-triangular" order
     ## (column-wise)
     ff <- function(x) {
-	if (all(x[iu <- upper.tri(x)] == 0)) t(x[!iu]) else t(x)[!iu]
+        if (all(na.omit(x[iu <- upper.tri(x)] == 0))) t(x[!iu]) else t(x)[!iu]
     }
     structure(unlist(lapply(L,ff)), clen = n)
 }
@@ -128,6 +128,10 @@ cov2sdcor  <- function(V) {
     r <- V
     r[] <- Is * V * rep(Is, each = p)
     diag(r) <- sd
+    if (any(is.na(r))) {
+        warning("NA values in sdcor matrix converted to 0")
+        r[is.na(r)] <- 0
+    }
     r
 }
 
@@ -139,13 +143,13 @@ cov2sdcor  <- function(V) {
 ## attempt to compute Cholesky, allow for positive semi-definite cases
 ##  (hackish)
 safe_chol <- function(m) {
-    if (all(m==0)) return(m)
+    if (any(is.na(m)) || all(m==0)) return(m)
     if (nrow(m)==1) return(sqrt(m))
     if (.isDiagonal.sq.matrix(m)) return(diag(sqrt(diag(m))))
 
     ## attempt regular Chol. decomp
     if (!is.null(cc <- tryCatch(chol(m), error=function(e) NULL)))
-	return(cc)
+        return(cc)
     ## ... pivot if necessary ...
     cc <- suppressWarnings(chol(m,pivot=TRUE))
     oo <- order(attr(cc,"pivot"))

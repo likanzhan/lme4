@@ -33,7 +33,7 @@ if (getRversion() >= "3.0.0") {
     ## include fixed effect of period
     fit_cbpp_1 <- update(fit_cbpp_0, . ~ . + period)
     if(FALSE) ## include observation-level RE
-    fit_cbpp_2 <- update(fit_cbpp_1, . ~ . + (1|obs))
+        fit_cbpp_2 <- update(fit_cbpp_1, . ~ . + (1|obs))
     ## specify formula by proportion/weights instead
     fit_cbpp_3 <- update(fit_cbpp_1, incidence/size ~ period + (1 | herd), weights = size)
 }
@@ -50,14 +50,19 @@ stopifnot(all.equal(getinfo(fm1 ),
                     getinfo(fm1S), tolerance = 0.5) # <- simulate()
           )
 
-if(FALSE) ## show all differences
-sapply(slotNames(fm1), function(.)
-    all.equal( slot(fm1,.), slot(fm1R,.), tolerance=0))
+if(FALSE) { ## show all differences
+    sapply(slotNames(fm1), function(.)
+        all.equal( slot(fm1,.), slot(fm1R,.), tolerance=0))
+}
 
-sapply(slotNames(fm1),
-       function(.) isTRUE(all.equal( slot(fm1,.), slot(fm1R,.), tolerance= 1.5e-5)))
-str(fm1 @ optinfo)
-str(fm1R@ optinfo)
+if (getRversion() >= "3.4.0") {
+    ## differences: FALSE for resp, theta, u, devcomp, pp, optinfo?
+    ## FIXME: this isn't actually tested in any way ...
+    sapply(slotNames(fm1),
+           function(.) isTRUE(all.equal( slot(fm1,.), slot(fm1R,.), tolerance= 1.5e-5)))
+    str(fm1 @ optinfo)
+    str(fm1R@ optinfo)
+}
 
 fm1ML <- refitML(fm1)
 stopifnot(
@@ -77,11 +82,9 @@ all.equal(getinfo(gm1), getinfo(gm1R), tolerance=0) # to see it --> 5.52e-4
 # because glmer() uses Laplace approx. (? -- still, have *same* y !)
 stopifnot(all.equal(getinfo(gm1), getinfo(gm1R), tolerance = 1e-4))
 
-## if(FALSE) {## FIXME: still failing on Windows (SW: how about now?)
 gm1S <- refit(gm1, simulate(gm1)[[1]])
           all.equal(getinfo(gm1), getinfo(gm1S), tolerance=0) # to see:
 stopifnot(all.equal(getinfo(gm1), getinfo(gm1S), tolerance = 0.4))
-## }
 
 ## binomial GLMM (prob/weights)
 formula(gm2 <- fit_cbpp_3)
@@ -121,7 +124,7 @@ stopifnot(all.equal(getinfo(d1), getinfo(d2),  tolerance = 0.005))
 
 
 ## Bernoulli GLMM (specified as factor)
-if (require("mlmRev")) {
+if (requireNamespace("mlmRev")) {
     data(Contraception, package="mlmRev")
     gm3 <- glmer(use ~ urban + age + livch + (1|district),
                  Contraception, binomial)
@@ -162,9 +165,10 @@ gmGrouse <- glmer(formGrouse, family = "poisson", data = grouseticks)
 set.seed(105)
 simTICKS <- simulate(gmGrouse)[[1]]
 newdata <- transform(grouseticks, TICKS = simTICKS)
-gmGrouseUpdate <- update(gmGrouse, data = newdata)
+gmGrouseUpdate <-  update(gmGrouse, data = newdata)
 gmGrouseRefit  <-  refit(gmGrouse, newresp = simTICKS)
 
+## compute and print tolerances
 all.equal(bet.U <- fixef(gmGrouseUpdate),
           bet.R <- fixef(gmGrouseRefit), tolerance = 0)
 all.equal(th.U <- getME(gmGrouseUpdate, "theta"),
@@ -172,15 +176,6 @@ all.equal(th.U <- getME(gmGrouseUpdate, "theta"),
 all.equal(dev.U <- deviance(gmGrouseUpdate),
           dev.R <- deviance(gmGrouseRefit),	tolerance = 0)
 stopifnot(
-    all.equal(bet.U, bet.R, tolerance = 4e-5), # saw 1.0e-5
+    all.equal(bet.U, bet.R, tolerance = 6e-5), # saw 1.0e-5
     all.equal( th.U,  th.R, tolerance = 4e-5), # saw 1.2e-5
     all.equal(dev.U, dev.R, tolerance = 2e-5)) # saw 4.6e-6
-all.equal(fixef(gmGrouseUpdate),
-          fixef(gmGrouseRefit),
-          tolerance = 1e-5)
-all.equal(getME(gmGrouseUpdate, "theta"),
-          getME(gmGrouseRefit,  "theta"),
-          tolerance = 1e-5)
-all.equal(deviance(gmGrouseUpdate),
-          deviance(gmGrouseRefit),
-          tolerance = 1e-5)

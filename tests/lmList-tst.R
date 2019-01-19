@@ -1,6 +1,6 @@
 library(lme4)
-library(testthat)
 
+options(nwarnings = 1000)
 set.seed(17)
 fm1. <- lmList(Reaction ~ Days | Subject, sleepstudy, pool=FALSE)
 fm1  <- lmList(Reaction ~ Days | Subject, sleepstudy)
@@ -22,7 +22,13 @@ stopifnot(all.equal(signif(coef(fm1), 8), cf.fm1,
 
 sm1. <- summary(fm1.)
 sm1 <- summary(fm1)
-stopifnot(all.equal(sm1$RSE, 25.5918156267, tolerance = 1e-10))
+iC <- which(names(sm1) %in% c("call", "pool"       # << differ
+                            , "coefficients"       # << SE, z, P differ
+                            , "df.residual", "RSE" # << exist only when pooled
+            ))
+stopifnot(all.equal(sm1$RSE, 25.5918156267, tolerance = 1e-10),
+          sm1$df.residual == 144,
+          all.equal(sm1[-iC], sm1.[-iC],    tolerance = 1e-10))
 cf1 <- confint(fm1)
 
 if(!dev.interactive(orNone=TRUE)) pdf("lmList_plots.pdf")
@@ -64,18 +70,20 @@ stopifnot(identical(dim(cf32), c(5L,2:1)),
 
 
 ## "glmList" (2) -- here,  herd == 8 has only one observation => not estimable
-expect_warning(fm4 <- lmList(cbind(incidence, size - incidence) ~ period | herd,
-             family=binomial, data=cbpp),
-             "Fitting failed for ")
+testthat::expect_warning(
+              fm4 <- lmList(cbind(incidence, size - incidence) ~ period | herd,
+                            family=binomial, data=cbpp)
+            , "Fitting failed for")
 
 fm4 # no pooled SD for glm
-(cf4 <- coef(fm4)) # with some 5 NA's
+(cf4 <- coef(fm4)) # with some 5 NA's -- but works
 ## match NA locations
 stopifnot(dim(cf4) == c(15,4),
           identical(which(is.na(cf4)),
                     sort(as.integer(c(8+15*(0:3), 47)))))
 
-fm5 <- lmList(incidence ~ period | herd, data=cbpp)
+## each with a warning - the same, actually, and as fm4's; less verbose for nlme:
+fm5 <-       lmList(incidence ~ period | herd, data=cbpp)
 fm6 <- nlme::lmList(incidence ~ period | herd, data=cbpp)
 
 ## for this example coef() *does* work ...
@@ -93,15 +101,11 @@ ctab <- t(sapply(split(cbpp,cbpp$herd),
 stopifnot(all.equal(c(ctab),c(as.matrix(coef(fm4)))))
 
 if(FALSE) {## FIXME: but I (BMB) think this is actually an nlme bug ...
-    summary(fm4)
-
+    summary(fm4) ## summary.lmList4 := nlme:::summary.lmList (with our env.)
+    ## fails, but nlme is not better:
     library(nlme)
-    data("cbpp",package="lme4")
-    fm6 <- nlme::lmList(incidence ~ period | herd, data=cbpp)
-    ## Warning message:
-    ## In lmList.formula(incidence ~ period | herd, data = cbpp) :
-    ##   An lm fit failed, probably because a factor only had one level
-    try(coef(fm6))  ## coef does *not* work here
+    ## as for fm6 [see above],  even coef() fails:
+    try(   coef(fm6))  ## coef does *not* work here
     try(summary(fm6))
 }
 
@@ -159,7 +163,7 @@ evs3.2
 evs4 <- sapply(s3fn, function(fn)
     tryCatch(do.call(fn, list(fm4)), error=function(e) e))
 length(warnings())
-unique(warnings()) ##  glm.fit: fitted probabilities numerically 0 or 1 occurred
+summary(warnings()) ##  4 kinds;  glm.fit: fitted probabilities numerically 0 or 1 occurred
 
 str(sapply(evs4, class)) # more errors than above
 isok4 <- !sapply(evs4, is, class2="error")

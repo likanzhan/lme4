@@ -11,6 +11,7 @@ clean
 .gitignore
 .Rproj.user
 ^.RData
+.*/.RData
 \.aux$
 \.dvi$
 \.log$
@@ -29,3 +30,4 @@ cache/.*
 README.md
 TODO.md
 R/TAGS
+src/mcmcsamp.cpp
